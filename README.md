@@ -20,11 +20,11 @@ LDA主题模型
 
 训练：
 
-    ./lda.py --train train_docs.txt --model model.txt --result result.txt
+    ./lda.py --train training_docs.txt --model model.txt --result training_result.txt
 
 预测：
 
-    ./lda.py --predict test_docs.txt --model model.txt --result result.txt
+    ./lda.py --predict test_docs.txt --model model.txt --result test_result.txt
 
 其它主要参数：
 * `-K` : 设置主题个数
