@@ -7,9 +7,9 @@ import collections
 """
 
 class GibbsLDA :
-    def __init__(self,K):
-        self.alpha=1
-        self.beta=1
+    def __init__(self,K,alpha,beta):
+        self.alpha=alpha
+        self.beta=beta
         self.K=K
         self._init_list=lambda x,y : [y for i in range(x)]
         self._init_array=lambda x,y,z : [[z for j in range(y)] for i in range(x)]
@@ -200,19 +200,21 @@ if __name__ == '__main__':
     parser.add_argument('--n_stops',type=int,default=100, help='设定停用词个数')
     parser.add_argument('--n_words',type=int,default=1000, help='设定使用的词的个数')
     parser.add_argument('-K',type=int,default=20, help='主题个数')
+    parser.add_argument('--alpha',type=int,default=1, help='')
+    parser.add_argument('--beta',type=int,default=1, help='')
 
     args = parser.parse_args()
 
     if args.train :
         docs,vocabulary=load(args.train,args.n_stops,args.n_words)
-        model=GibbsLDA(args.K)
+        model=GibbsLDA(args.K,args.alpha,args.beta)
         model.set_vocabulary(vocabulary)
         model.loop(docs,args.burnin,args.iteration)
         if args.model : model.save(args.model)
         if args.result : model.save_assignment(args.result)
 
     if args.predict :
-        model=GibbsLDA(args.K)
+        model=GibbsLDA(args.K,0,0)
         model.load(args.model)
         docs=load_with_v(args.predict,model.vocabulary)
         model.loop(docs,args.burnin,args.iteration)
