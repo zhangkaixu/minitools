@@ -69,26 +69,17 @@ class Record :
                 'accuracy':self.cor/self.total,
                 }
         if stream :
-            print(('样本数:%i (%.0f样本/秒) 正确数:%i 正确率:'+make_color('%.2f'))
+            print(('样本数:%i (%.0f/秒) 正确数:%i ('+make_color('%.2f'))
                     %(self.total,self.total/(time.time()-self.start_time),
-                        self.cor,self.cor/self.total)
+                        self.cor,self.cor/self.total*100)+'%)'
                     ,file=sys.stderr)
         return results
 
-def parse_input():
-    for line in sys.stdin :
-        command,*args=line.split()
-        if not command : continue
-        yield command,args
-
-def parse_features(features):
-    features=[x.rpartition(':') for x in features]
-    return {k : float(v)for k,_,v in features}
-
 def parse_example(example):
     cat,*features=example.strip().split()
-    return cat,parse_features(features)
-
+    features=[x.rpartition(':') for x in features]
+    features={k : float(v)for k,_,v in features}
+    return cat,features
 
 class Miniper :
     def __init__(self):
