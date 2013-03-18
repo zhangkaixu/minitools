@@ -24,14 +24,14 @@ class Perceptron(dict):
         self[key]+=delta
         if key not in self._acc : self._acc[key]=0
         self._acc[key]+=self._step*delta
-    def learn(self,cat,features):#core algorithm of the perceptron
+    def learn(self,cat,features,is_burnin=False):#core algorithm of the perceptron
         self._cats.add(cat)
         y=self.predict(features)#predict a label
         if y != cat : # if it is not right, update weights
             for f,v in features.items():
                 self._update(cat+'~'+f,v)
                 self._update(y+'~'+f,-v)
-        self._step+=1
+        if not is_burnin : self._step+=1
         return y==cat
     def average(self):
         self._backup=dict(self)
@@ -98,8 +98,8 @@ class Miniper :
         self._perceptron.load(filename)
     def save(self,filename):
         self._perceptron.save(filename)
-    def learn(self,cat,features):
-        self._record(self._perceptron.learn(cat,features))
+    def learn(self,cat,features,**args):
+        self._record(self._perceptron.learn(cat,features,**args))
     def test(self,cat,features):
         self._record(cat,self._perceptron.predict(features))
     def predict(self,features):
@@ -117,6 +117,7 @@ class Miniper :
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
+    parser.add_argument('--burnin',type=int,default=0, help='')
     parser.add_argument('--iteration',type=int,default=5, help='')
     parser.add_argument('--train',type=str, help='')
     parser.add_argument('--test',type=str, help='')
@@ -149,9 +150,9 @@ if __name__ == '__main__':
 
     if args.train:
         per=Miniper()
-        for i in range(args.iteration):
+        for i in range(args.iteration+args.burnin):
             for l in open(args.train):
-                per.learn(*parse_example(l.strip()))
+                per.learn(*parse_example(l.strip()),is_burnin=(i<args.burnin))
             per.report()
         per.average()
         per.save(args.model)
