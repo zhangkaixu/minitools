@@ -121,6 +121,8 @@ if __name__ == '__main__':
     parser.add_argument('--iteration',type=int,default=5, help='')
     parser.add_argument('--train',type=str, help='')
     parser.add_argument('--test',type=str, help='')
+    parser.add_argument('--predict',type=str, help='')
+    parser.add_argument('--result',type=str, help='')
     parser.add_argument('--model',type=str, help='')
     parser.add_argument('--CV',type=int, help='')
     args = parser.parse_args()
@@ -163,3 +165,13 @@ if __name__ == '__main__':
         for l in open(args.test):
             per.test(*parse_example(l.strip()))
         per.report()
+
+    if args.model and (not args.train and not args.test and not args.CV) :
+        per=Miniper()
+        per.load(args.model)
+        instream=open(args.predict) if args.predict else sys.stdin
+        outstream=open(args.result,'w') if args.result else sys.stdout
+        for l in instream:
+            label=per.predict(*parse_example(l.strip())[1:])
+            print(label,file=outstream)
+
