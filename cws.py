@@ -152,4 +152,4 @@ if __name__ == '__main__':
         for l in instream:
             x,y=load_example(l.split())
             z=cws.decode(x)
-            print(dump_example(x,z),file=outstream)
+            print(' '.join(dump_example(x,z)),file=outstream)

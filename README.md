@@ -1,5 +1,6 @@
-迷你兔
-======
+Minitools 迷你兔
+================
+
 作者编写了几个机器学习、自然语言处理领域的小工具。
 每个小工具均由一个单一的`.py`文件构成，具备最基本功能，可以独立使用。
 
@@ -8,9 +9,12 @@
 * 直接运用于简单场合
 * 以此开发更好的工具
 
-已编写的工具有： **LDA主题模型** `lda.py`， **感知器模型** `perceptron.py`
+已编写的工具有：
+* **LDA主题模型** `lda.py`
+* **感知器模型** `perceptron.py`
+* **中文分词模型** `cws.py`
 
-计划编写的工具： 中文分词模型
+计划编写的工具： 
 
 
 LDA主题模型
@@ -76,3 +80,31 @@ LDA主题模型
 模型文件：使用JSON格式存储的两个对象。第一个为所有类别的表格，第二个为一个哈希表，`key`为特征，形如`label~feature`，`value`为权重。
 
 结果文件：每行一个样本，仅输出分类结果即类别。
+
+
+中文分词模型
+------------
+
+### 调用
+
+训练：
+
+    ./cws.py --train training_file.txt --model model.txt
+
+测试：
+
+    ./cws.py --model model.txt --test test_file.txt
+
+预测：
+
+    ./cws.py --model model.txt --predict predict.txt --result result.txt
+    ./cws.py --model model.txt < predict.txt > result.txt
+
+其它主要参数：
+* `--iteration` : 迭代次数
+
+### 文件格式
+
+训练文件、预测文件、结果文件：用空格分词的中文句子。
+
+模型文件：使用JSON格式存储的哈希表，`key`为特征，`value`为权重。
