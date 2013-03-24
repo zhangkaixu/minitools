@@ -88,8 +88,14 @@ class Evaluator : # 评价
     def __init__(self):
         self.std,self.rst,self.cor=0,0,0
         self.start_time=time.time()
+    def _gen_set(self,words):
+        offset=0
+        word_set=set()
+        for word in words:
+            word_set.add((offset,word))
+            offset+=len(word)
     def __call__(self,std,rst): # 根据答案std和结果rst进行统计
-        std,rst=set(std),set(rst)
+        std,rst=self._gen_set(std),self._gen_set(rst)
         self.std+=len(std)
         self.rst+=len(rst)
         self.cor+=len(std&rst)
@@ -113,7 +119,7 @@ if __name__ == '__main__':
     if args.train: 
         cws=CWS()
         for i in range(args.iteration):
-            print(i+1,end=' '),sys.stdout.flush()
+            print('第 %i 次迭代'%(i+1),end=' '),sys.stdout.flush()
             evaluator=Evaluator()
             for ind,l in enumerate(open(args.train)):
                 x,y=load_example(l.split())
