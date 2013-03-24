@@ -94,6 +94,7 @@ class Evaluator : # 评价
         for word in words:
             word_set.add((offset,word))
             offset+=len(word)
+        return word_set
     def __call__(self,std,rst): # 根据答案std和结果rst进行统计
         std,rst=self._gen_set(std),self._gen_set(rst)
         self.std+=len(std)
