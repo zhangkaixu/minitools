@@ -109,7 +109,7 @@ class Evaluator : # 评价
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
-    parser.add_argument('--iteration',type=int,default=3, help='')
+    parser.add_argument('--iteration',type=int,default=5, help='')
     parser.add_argument('--train',type=str, help='')
     parser.add_argument('--test',type=str, help='')
     parser.add_argument('--predict',type=str, help='')
@@ -122,11 +122,11 @@ if __name__ == '__main__':
         for i in range(args.iteration):
             print('第 %i 次迭代'%(i+1),end=' '),sys.stdout.flush()
             evaluator=Evaluator()
-            for ind,l in enumerate(open(args.train)):
+            for l in open(args.train):
                 x,y=load_example(l.split())
                 z=cws.decode(x)
-                cws.weights._step+=1
                 evaluator(dump_example(x,y),dump_example(x,z))
+                cws.weights._step+=1
                 if z!=y :
                     cws.update(x,y,1)
                     cws.update(x,z,-1)
@@ -138,7 +138,7 @@ if __name__ == '__main__':
         cws=CWS()
         cws.weights.load(args.model)
         evaluator=Evaluator()
-        for ind,l in enumerate(open(args.test)):
+        for l in open(args.test) :
             x,y=load_example(l.split())
             z=cws.decode(x)
             evaluator(dump_example(x,y),dump_example(x,z))
