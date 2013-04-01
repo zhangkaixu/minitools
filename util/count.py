@@ -1,8 +1,10 @@
 #!/usr/bin/python3
-# Zhang, Kaixu: kareyzhang@gmail.com
+"""
+Zhang, Kaixu: kareyzhang@gmail.com
+用于数数
+"""
 import argparse
 import sys
-import json
 import collections
 
 if __name__ == '__main__':
