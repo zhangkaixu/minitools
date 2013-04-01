@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Zhang, Kaixu kareyzhang.gmail.com
+# Zhang, Kaixu: kareyzhang@gmail.com
 import argparse
 import sys
 import json
