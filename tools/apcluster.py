@@ -24,12 +24,20 @@ if __name__ == '__main__':
             if b not in indexer : indexer[b]=len(indexer)
             print(indexer[a]+1,indexer[b]+1,s)
         outf=open(args.index,'w')
-        for k,v in sorted((indexer.items())):
-            print(k,v+1,file=outf)
+        for k,v in sorted((indexer.items()),key=lambda x : x[1]):
+            print(k,file=outf)
         exit()
     if args.get :
-        ri={}
-        for line in open(args.index):
-            k,v=line.split()
-            ri[int(v)]=k
+        clus={}
+        for it,x in zip(open(args.index),enumerate(instream)):
+            ind,c=x
+            ind=ind+1
+            it=it.strip()
+            c=int(c)
+            if c==0 : c=ind
+            if c not in clus : clus[c]=[[],[]]
+            clus[c][0 if c==ind else 1].append(it)
+        for v in sorted([sum(v,[])for v in clus.values()],key=lambda x : len(x),reverse=True):
+            print(*v,file=outstream)
+
 
