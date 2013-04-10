@@ -21,7 +21,7 @@ if __name__ == '__main__':
     for line in instream :
         line=line.strip()
         if args.with_weight :
-            k,_,w=line.partition(' ')
+            k,_,w=line.rpartition(' ')
             counter.update({k : float(w)})
         else :
             counter.update({line : 1})
