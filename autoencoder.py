@@ -116,7 +116,8 @@ def make_array(n,vec):
 def test_dA(learning_rate=0.1, training_epochs=15,
             dataset="",modelfile="",
             batch_size=20, output_folder='dA_plots',
-            n_visible=1346,n_hidden=100):
+            n_visible=1346,n_hidden=100,
+            beta=0,rho=0.5,noise=0.3):
 
     train_set_x=[]
     n_visible=0
@@ -127,8 +128,14 @@ def test_dA(learning_rate=0.1, training_epochs=15,
             n_visible=max(n_visible,max(vec)+1)
         train_set_x.append(vec)
 
+    print >>sys.stderr, "number of training example", len(train_set_x)
+    print >>sys.stderr, "batch size", batch_size
+
     print >>sys.stderr, "number of visible nodes", n_visible
     print >>sys.stderr, "number of hidden nodes", n_hidden
+
+    print >>sys.stderr, "corruption_level",noise
+    print >>sys.stderr, "sparse rate",rho,"weight",beta
     # compute number of minibatches for training, validation and testing
     n_train_batches = len(train_set_x) / batch_size
     #print(n_train_batches)
@@ -150,8 +157,9 @@ def test_dA(learning_rate=0.1, training_epochs=15,
     da = dA(numpy_rng=rng, theano_rng=theano_rng, input=x,
             n_visible=n_visible, n_hidden=n_hidden)
 
-    cost, updates = da.get_cost_updates(corruption_level=0.1,
-                                        learning_rate=learning_rate)
+    cost, updates = da.get_cost_updates(corruption_level=noise,
+                                        learning_rate=learning_rate,
+                                        beta=beta,rho=rho)
 
     train_da = theano.function([], cost, updates=updates,
          givens={x: shared_x})
@@ -180,19 +188,6 @@ def test_dA(learning_rate=0.1, training_epochs=15,
     cPickle.dump([da.W,da.b,da.b_prime],modelfile)
     modelfile.close()
 
-def output_weights():
-    "not used"
-    conts={}
-    for line in open("ae_index.txt"):
-        cont,ind=line.split()
-        conts[int(ind)]=cont
-
-    paras=cPickle.load(gzip.open("model.gz"))
-    W=paras[0].get_value().T
-    for j,V in enumerate(W) :
-        V=sorted(enumerate(V),key=lambda x:x[1],reverse=True)[:10]
-        V=[conts[i] for i,_ in V]
-        print(str(j)+" :  "+' | '.join(V))
 
 def predict(modelfile,threshold=0.5):
     modelfile=gzip.open(modelfile)
@@ -228,19 +223,47 @@ def predict(modelfile,threshold=0.5):
         print word,' '.join([str(ind) for ind, v in enumerate(res) if float(v)>threshold])
         sys.stdout.flush()
 
+def output_weights(modelfile):
+    "not used"
+    conts={}
+    for line in open("ae_index.txt"):
+        cont,ind=line.split()
+        conts[int(ind)]=cont
+
+    modelfile=gzip.open(modelfile)
+    n_visible,n_hidden=cPickle.load(modelfile)
+    paras=cPickle.load(modelfile)
+
+    W=paras[0].get_value().T
+    for j,V in enumerate(W) :
+        V=sorted(enumerate(V),key=lambda x:x[1],reverse=True)[:10]
+        V=[conts[i] for i,_ in V]
+        print(str(j)+" :  "+' | '.join(V))
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('model',  type=str)
-    parser.add_argument('--hidden',  type=int,default=50)
+    
     parser.add_argument('--train',  type=str)
+    parser.add_argument('--hidden',  type=int,default=50)
     parser.add_argument('--batch_size',  type=int,default=20)
     parser.add_argument('--iteration',  type=int,default=15)
-    parser.add_argument('--threshold',  type=float,default=0.5)
+    parser.add_argument('--noise',  type=float,default=0.1)
+    parser.add_argument('--beta',  type=float,default=0.0)
+    parser.add_argument('--rho',  type=float,default=0.1)
+
     parser.add_argument('--predict',  action="store_true")
+    parser.add_argument('--threshold',  type=float,default=0.5)
+    
+    parser.add_argument('--index',  type=str)
     args = parser.parse_args()
 
     if args.train :
         test_dA(dataset=args.train,n_hidden=args.hidden,
-                batch_size=args.batch_size,modelfile=args.model)
+                batch_size=args.batch_size,modelfile=args.model,
+                beta=args.beta,rho=args.rho,noise=args.noise)
     if args.predict :
         predict(modelfile=args.model,threshold=args.threshold)
+    if args.index :
+        output_weights(args.model)
+
