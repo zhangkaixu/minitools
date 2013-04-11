@@ -78,7 +78,7 @@ class dA(object):
     def get_reconstructed_input(self, hidden):
         return  T.nnet.sigmoid(T.dot(hidden, self.W_prime) + self.b_prime)
 
-    def get_cost_updates(self, corruption_level, learning_rate):
+    def get_cost_updates(self, corruption_level, learning_rate, rho=0.1, beta=10):
         """ This function computes the cost and the updates for one trainng
         step of the dA """
 
@@ -86,18 +86,18 @@ class dA(object):
         y = self.get_hidden_values(tilde_x)
         z = self.get_reconstructed_input(y)
 
-        L = - T.sum(self.x * T.log(z) + (1 - self.x) * T.log(1 - z), axis=1)
+        #L = - T.sum(self.x * T.log(z) + (1 - self.x) * T.log(1 - z), axis=1)
         
         #
         # sparse
         # rho is the expected (small) fired rate
         #
-        #a=T.mean(y)
-        #rho=0.1
-        #sL=rho*T.log(rho/a)+(1-rho)*T.log((1-rho)/(1-a))
-        #L = - T.sum(self.x * T.log(z) + (1 - self.x) * T.log(1 - z), axis=1) + sL * 200
+        a=T.mean(y,axis=0)
+        rho=0.1
+        sL=  ( rho*T.log(rho/a)+(1-rho)*T.log((1-rho)/(1-a)) ) 
+        L = - T.sum(self.x * T.log(z) + (1 - self.x) * T.log(1 - z), axis=1)
 
-        cost = T.mean(L)
+        cost = T.mean(L) + T.sum(sL) * beta
 
         gparams = T.grad(cost, self.params)
         # generate the list of updates
@@ -123,13 +123,15 @@ def test_dA(learning_rate=0.1, training_epochs=15,
     for line in open(dataset):
         line=line.split()
         vec=[int(x)for x in line[1:]]
-        n_visible=max(n_visible,max(vec)+1)
+        if vec:
+            n_visible=max(n_visible,max(vec)+1)
         train_set_x.append(vec)
 
-    print n_visible
+    print >>sys.stderr, "number of visible nodes", n_visible
+    print >>sys.stderr, "number of hidden nodes", n_hidden
     # compute number of minibatches for training, validation and testing
     n_train_batches = len(train_set_x) / batch_size
-    print(n_train_batches)
+    #print(n_train_batches)
 
 
     # allocate symbolic variables for the data
@@ -192,7 +194,7 @@ def output_weights():
         V=[conts[i] for i,_ in V]
         print(str(j)+" :  "+' | '.join(V))
 
-def predict(modelfile):
+def predict(modelfile,threshold=0.5):
     modelfile=gzip.open(modelfile)
     n_visible,n_hidden=cPickle.load(modelfile)
     paras=cPickle.load(modelfile)
@@ -222,7 +224,8 @@ def predict(modelfile):
         v=make_array(n_visible,map(int,line[1:]))
         shared_x.set_value(numpy.array([v]))
         res=predict_da()[0]
-        print word,' '.join([str(ind) for ind, v in enumerate(res) if float(v)>0.5])
+        #print word,' '.join([str(v) for ind, v in enumerate(res) if float(v)>0.5])
+        print word,' '.join([str(ind) for ind, v in enumerate(res) if float(v)>threshold])
         sys.stdout.flush()
 
 if __name__ == '__main__':
@@ -232,6 +235,7 @@ if __name__ == '__main__':
     parser.add_argument('--train',  type=str)
     parser.add_argument('--batch_size',  type=int,default=20)
     parser.add_argument('--iteration',  type=int,default=15)
+    parser.add_argument('--threshold',  type=float,default=0.5)
     parser.add_argument('--predict',  action="store_true")
     args = parser.parse_args()
 
@@ -239,4 +243,4 @@ if __name__ == '__main__':
         test_dA(dataset=args.train,n_hidden=args.hidden,
                 batch_size=args.batch_size,modelfile=args.model)
     if args.predict :
-        predict(modelfile=args.model)
+        predict(modelfile=args.model,threshold=args.threshold)
