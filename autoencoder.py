@@ -93,10 +93,11 @@ class dA(object):
         # rho is the expected (small) fired rate
         #
         a=T.mean(y,axis=0)
-        rho=0.1
+        #rho=0.1
         sL=  ( rho*T.log(rho/a)+(1-rho)*T.log((1-rho)/(1-a)) ) 
         L = - T.sum(self.x * T.log(z) + (1 - self.x) * T.log(1 - z), axis=1)
 
+        #cost = T.mean(L) + T.sum(sL) * beta + T.sum(self.W*self.W)/100
         cost = T.mean(L) + T.sum(sL) * beta
 
         gparams = T.grad(cost, self.params)
@@ -223,10 +224,10 @@ def predict(modelfile,threshold=0.5):
         print word,' '.join([str(ind) for ind, v in enumerate(res) if float(v)>threshold])
         sys.stdout.flush()
 
-def output_weights(modelfile):
+def output_weights(modelfile,indexfile):
     "not used"
     conts={}
-    for line in open("ae_index.txt"):
+    for line in open(indexfile):
         cont,ind=line.split()
         conts[int(ind)]=cont
 
@@ -265,5 +266,5 @@ if __name__ == '__main__':
     if args.predict :
         predict(modelfile=args.model,threshold=args.threshold)
     if args.index :
-        output_weights(args.model)
+        output_weights(args.model,args.index)
 
