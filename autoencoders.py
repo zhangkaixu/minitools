@@ -202,8 +202,31 @@ def predict(modelfile,threshold=0.5):
         sys.stdout.flush()
 
 if __name__ == '__main__':
-    #finetune('samples.txt',['model.t2.1.gz','model.t2.2.gz'],
-    #finetune('topwords2.txt',['model.t2.1.gz','model.t2.2.gz'],
-    #        'model.gz',)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('model',  type=str)
+    
+    parser.add_argument('--layers', nargs='+', type=str)
+    parser.add_argument('--train',  type=str)
+    parser.add_argument('--batch_size',  type=int,default=20)
+    parser.add_argument('--iteration',  type=int,default=15)
+    parser.add_argument('--noise',  type=float,default=0.1)
+    parser.add_argument('--beta',  type=float,default=0.0)
+    parser.add_argument('--rho',  type=float,default=0.1)
+
+    parser.add_argument('--predict',  action="store_true")
+    parser.add_argument('--threshold',  type=float,default=0.5)
+    
+    parser.add_argument('--index',  type=str)
+    args = parser.parse_args()
+
+    if args.train :
+        finetune(dataset=args.train,modelfiles=args.layers,
+                batch_size=args.batch_size,newmodelfile=args.model,
+                beta=args.beta,rho=args.rho,noise=args.noise,
+                training_epochs=args.iteration
+                )
+    if args.predict :
+        predict(modelfile=args.model,threshold=args.threshold)
+    exit()
 
     predict('model.gz')
