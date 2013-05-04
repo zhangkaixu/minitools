@@ -26,7 +26,9 @@
 调用
 --------------
 
-训练::
+训练
+
+.. code-block:: bash 
 
     ./cws.py --train training_file.txt --model model.txt
 
