@@ -220,12 +220,11 @@ def predict(modelfile,threshold=0.5):
         v=make_array(n_visible,map(int,line[1:]))
         shared_x.set_value(numpy.array([v]))
         res=predict_da()[0]
-        #print word,' '.join([str(v) for ind, v in enumerate(res) if float(v)>0.5])
         print word,' '.join([str(ind) for ind, v in enumerate(res) if float(v)>threshold])
+        #print word,' '.join([str(ind)+":"+str(v) for ind, v in enumerate(res) if float(v)>threshold])
         sys.stdout.flush()
 
 def output_weights(modelfile,indexfile):
-    "not used"
     conts={}
     for line in open(indexfile):
         cont,ind=line.split()
