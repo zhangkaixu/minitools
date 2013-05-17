@@ -114,7 +114,7 @@ def make_array(n,vec):
         v[(ind)]=1
     return numpy.array(v)
 
-def test_dA(learning_rate=0.1, training_epochs=15,
+def test_dA(learning_rate=0.01, training_epochs=15,
             dataset="",modelfile="",
             batch_size=20, output_folder='dA_plots',
             n_visible=1346,n_hidden=100,
@@ -251,7 +251,7 @@ if __name__ == '__main__':
     parser.add_argument('--noise',  type=float,default=0.1)
     parser.add_argument('--beta',  type=float,default=0.0)
     parser.add_argument('--rho',  type=float,default=0.1)
-
+    parser.add_argument('--learning_rate',  type=float,default=0.01)
     parser.add_argument('--predict',  action="store_true")
     parser.add_argument('--threshold',  type=float,default=0.5)
     
@@ -261,7 +261,10 @@ if __name__ == '__main__':
     if args.train :
         test_dA(dataset=args.train,n_hidden=args.hidden,
                 batch_size=args.batch_size,modelfile=args.model,
-                beta=args.beta,rho=args.rho,noise=args.noise)
+                beta=args.beta,rho=args.rho,noise=args.noise,
+                training_epochs=args.iteration,
+                learning_rate=args.learning_rate,
+                )
     if args.predict :
         predict(modelfile=args.model,threshold=args.threshold)
     if args.index :
