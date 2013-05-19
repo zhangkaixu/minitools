@@ -75,16 +75,19 @@ class dA(object):
     def get_hidden_values(self, input):
         return T.nnet.sigmoid(T.dot(input, self.W) + self.b)
 
-    def get_reconstructed_input(self, hidden):
+    def get_reconstructed_input(self, hidden,linear=False):
+        if linear :
+            return T.dot(hidden, self.W_prime) + self.b_prime
         return  T.nnet.sigmoid(T.dot(hidden, self.W_prime) + self.b_prime)
 
-    def get_cost_updates(self, corruption_level, learning_rate, rho=0.1, beta=10):
+    def get_cost_updates(self, corruption_level, learning_rate, rho=0.1, beta=10,
+            linear=False,lost_func='KL'):
         """ This function computes the cost and the updates for one trainng
         step of the dA """
 
         tilde_x = self.get_corrupted_input(self.x, corruption_level)
         y = self.get_hidden_values(tilde_x)
-        z = self.get_reconstructed_input(y)
+        z = self.get_reconstructed_input(y,linear=linear)
 
         #L = - T.sum(self.x * T.log(z) + (1 - self.x) * T.log(1 - z), axis=1)
         
@@ -95,7 +98,13 @@ class dA(object):
         a=T.mean(y,axis=0)
         #rho=0.1
         sL=  ( rho*T.log(rho/a)+(1-rho)*T.log((1-rho)/(1-a)) ) 
-        L = - T.sum(self.x * T.log(z) + (1 - self.x) * T.log(1 - z), axis=1)
+        
+        #lost for the output
+        if lost_func=='KL':
+            L = - T.sum(self.x * T.log(z) + (1 - self.x) * T.log(1 - z), axis=1)
+        elif lost_func=='L2':
+            L = T.sum((self.x-z)**2)/2
+
 
         #cost = T.mean(L) + T.sum(sL) * beta + T.sum(self.W*self.W)/100
         cost = T.mean(L) + T.sum(sL) * beta
@@ -108,26 +117,59 @@ class dA(object):
 
         return (cost, updates)
 
-def make_array(n,vec):
-    v=[0 for i in range(n)]
-    for ind in vec:
-        v[(ind)]=1
-    return numpy.array(v)
+
+class Inds_Loader():
+    @staticmethod
+    def load_training_data(lines):
+        train_set_x=[]
+        n_visible=0
+        for line in lines:
+            train_set_x.append(line)
+            line=line.split()
+            vec=[int(x)for x in line]
+            if vec:
+                n_visible=max(n_visible,max(vec)+1)
+        train_set_x=[Inds_Loader.load_line(x,n_visible) for x in train_set_x]
+        return train_set_x, n_visible
+
+    @staticmethod
+    def load_line(line,n_visible=None):
+        line=line.split()
+        vec=[int(x)for x in line]
+        v=[0 for i in range(n_visible)]
+        for ind in vec:
+            v[(ind)]=1
+        return numpy.array(v)
+
+class Floats_Loader():
+    @staticmethod
+    def load_training_data(lines):
+        train_set_x=[]
+        n_visible=0
+        for line in lines:
+            line=line.split()
+            line=list(map(float,line))
+            train_set_x.append(numpy.array(line))
+        return train_set_x, len(train_set_x[0])
+
+    @staticmethod
+    def load_line(line,n_visible=None):
+        line=line.split()
+        v=list(map(float,line))
+        return numpy.array(v)
+
+    
 
 def test_dA(learning_rate=0.01, training_epochs=15,
             dataset="",modelfile="",
             batch_size=20, output_folder='dA_plots',
             n_visible=1346,n_hidden=100,
-            beta=0,rho=0.5,noise=0.3):
+            beta=0,rho=0.5,noise=0.3,
+            linear=False,lost_func='KL',
+            loader=None):
 
-    train_set_x=[]
-    n_visible=0
-    for line in open(dataset):
-        line=line.split()
-        vec=[int(x)for x in line[1:]]
-        if vec:
-            n_visible=max(n_visible,max(vec)+1)
-        train_set_x.append(vec)
+    data=map(lambda x : x.partition(' ')[2],open(dataset))
+    train_set_x,n_visible=loader.load_training_data(data)
 
     print >>sys.stderr, "number of training example", len(train_set_x)
     print >>sys.stderr, "batch size", batch_size
@@ -137,6 +179,8 @@ def test_dA(learning_rate=0.01, training_epochs=15,
 
     print >>sys.stderr, "corruption_level",noise
     print >>sys.stderr, "sparse rate",rho,"weight",beta
+
+    print >>sys.stderr, "learning rate", learning_rate
     # compute number of minibatches for training, validation and testing
     n_train_batches = len(train_set_x) / batch_size
     #print(n_train_batches)
@@ -160,7 +204,8 @@ def test_dA(learning_rate=0.01, training_epochs=15,
 
     cost, updates = da.get_cost_updates(corruption_level=noise,
                                         learning_rate=learning_rate,
-                                        beta=beta,rho=rho)
+                                        beta=beta,rho=rho,
+                                        linear=linear,lost_func=lost_func)
 
     train_da = theano.function([], cost, updates=updates,
          givens={x: shared_x})
@@ -173,7 +218,7 @@ def test_dA(learning_rate=0.01, training_epochs=15,
         c = []
         for batch_index in xrange(n_train_batches):
             sub=train_set_x[batch_index * batch_size : (1+batch_index)*batch_size]
-            sub=numpy.array([make_array(n_visible,v)for v in sub])
+            sub=numpy.array(sub)
             shared_x.set_value(sub)
             c.append(train_da())
         print 'Training epoch %d, cost ' % epoch, numpy.mean(c)
@@ -190,7 +235,7 @@ def test_dA(learning_rate=0.01, training_epochs=15,
     modelfile.close()
 
 
-def predict(modelfile,threshold=0.5):
+def predict(modelfile,threshold=0.5,loader=None):
     modelfile=gzip.open(modelfile)
     n_visible,n_hidden=cPickle.load(modelfile)
     paras=cPickle.load(modelfile)
@@ -215,9 +260,8 @@ def predict(modelfile,threshold=0.5):
             givens={x: shared_x})
 
     for line in sys.stdin :
-        line=line.split()
-        word=line[0]
-        v=make_array(n_visible,map(int,line[1:]))
+        word,_,line=line.partition(' ')
+        v=loader.load_line(line,n_visible)
         shared_x.set_value(numpy.array([v]))
         res=predict_da()[0]
         print word,' '.join([str(ind) for ind, v in enumerate(res) if float(v)>threshold])
@@ -254,9 +298,20 @@ if __name__ == '__main__':
     parser.add_argument('--learning_rate',  type=float,default=0.01)
     parser.add_argument('--predict',  action="store_true")
     parser.add_argument('--threshold',  type=float,default=0.5)
+    parser.add_argument('--linear',  type=bool,default=False)
+    parser.add_argument('--lost_func',  type=str,default='KL')
+    parser.add_argument('--vector',  type=str,default='inds')
     
     parser.add_argument('--index',  type=str)
     args = parser.parse_args()
+
+
+    loader_map={'inds': Inds_Loader,
+            'floats': Floats_Loader}
+    loader=loader_map.get(args.vector,None)
+    if loader==None : exit()
+
+    
 
     if args.train :
         test_dA(dataset=args.train,n_hidden=args.hidden,
@@ -264,9 +319,11 @@ if __name__ == '__main__':
                 beta=args.beta,rho=args.rho,noise=args.noise,
                 training_epochs=args.iteration,
                 learning_rate=args.learning_rate,
+                linear=args.linear,lost_func=args.lost_func,
+                loader=loader,
                 )
     if args.predict :
-        predict(modelfile=args.model,threshold=args.threshold)
+        predict(modelfile=args.model,threshold=args.threshold,loader=loader)
     if args.index :
         output_weights(args.model,args.index)
 

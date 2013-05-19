@@ -89,13 +89,13 @@ def read_one(filename,table,freq,tf):
         yield inds,[numpy.array([table[x]]).T for x in inds]
 
 
-def test_dA(learning_rate=0.001, training_epochs=30,
+def test_dA(learning_rate=0.001, training_epochs=10,
             dataset="",modelfile="output.txt",
             batch_size=20 ):
     V=3500# size of words
 
-    K=50 # dims of a word embedding
-    H=100
+    K=2 # dims of a word embedding
+    H=4
     # allocate symbolic variables for the data
     index = T.lscalar()    # index to a [mini]batch
 
