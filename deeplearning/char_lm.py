@@ -16,6 +16,7 @@ from theano.tensor.shared_randomstreams import RandomStreams
 
 
 rng = numpy.random.RandomState(123)
+numpy.random.seed(123)
 
 def random_matrix(x,y,name):
     initial_W = numpy.asarray(rng.uniform(
@@ -35,45 +36,59 @@ class LM(object):
 
         self.W = [ random_matrix(H,K,'W'+str(i)) for i in range(len(context)) ]
         self.Wt = random_matrix(H,K,'Wt') # weight for tgt
-        self.b = random_matrix(H,1,'b') # b for hiddens
+
+        initial_b = numpy.asarray(rng.uniform(
+                  low=-4 * numpy.sqrt(6. / (H+1)),
+                  high=4 * numpy.sqrt(6. / (H+1)),
+                  size=(H)), dtype=theano.config.floatX)
+        self.b = theano.shared(value=initial_b, name='b', borrow=True)
+        #self.b = random_matrix(H,1,'b') # b for hiddens
+        #self.b = theano.shared(value=numpy.zeros(H, dtype=theano.config.floatX), name='b', borrow=True) 
+
         self.x=context
         self.W2 = random_matrix(1,H,'W2') # weight from hiddens to output
         self.tgt=tgt
 
+        self.internal_params=self.W+[self.b,self.W2,self.Wt]
+        self.external_params=self.x+self.tgt
+        
         self.params = self.x+self.tgt+self.W+[self.b,self.W2,self.Wt]
 
 
     def get_cost_updates(self,learning_rate):
-        h=sum([T.dot(W,x) for x,W in zip(self.x,self.W)]+[self.b])
+        h=sum([T.dot(W,x) for x,W in zip(self.x,self.W)])
+        h=(h.T+self.b).T
         g=T.nnet.sigmoid(h+T.dot(self.Wt,self.tgt[0]))
         g_prime=T.nnet.sigmoid(h+T.dot(self.Wt,self.tgt[1]))
         
         score=T.dot(self.W2,g)
         score_prime=T.dot(self.W2,g_prime)
-        loss=T.sum(T.maximum(0,1+score_prime-score))
+        #loss=T.sum(T.maximum(0,1+score_prime-score))
+        loss=T.sum(T.clip(1 + score_prime - score, 0, 1e999))
 
         cost=loss
-        gparams = T.grad(cost, self.params)
-        # generate the list of updates
-        updates = []
-        for param, gparam in zip(self.params, gparams):
-            updates.append((param, param - learning_rate * gparam))
 
-        return (score,score_prime,cost, updates)
+        ginparams = T.grad(cost, self.internal_params)
+        gexparams = T.grad(cost, self.external_params)
 
+        inup=[(p,p-learning_rate*gp) for p,gp in zip(self.internal_params,ginparams)]
+        exup=[(p,-learning_rate*gp) for p,gp in zip(self.external_params,gexparams)]
+        return (score,score_prime,cost, inup+exup)
 
-
-
-
-def read_one(filename,table,freq,tf):
+def read_batch(filename,table,freq,tf,batch_size=1):
     data=[]
-    for line in open(filename):
-        x0,x1,y,x2,x3=list(map(int,line.split()))
-        data.append([x0,x1,y,x2,x3])
-    numpy.random.shuffle(data)
+    ln=0
     cache=[]
-    for line in data :
-        x0,x1,y,x2,x3=line
+    start_time = time.clock()
+    for line in open(filename):
+        ln+=1
+        x0,x1,y,x2,x3=list(map(int,line.split()))
+    #    data.append([x0,x1,y,x2,x3])
+    #numpy.random.shuffle(data)
+
+
+    #for ln,line in enumerate(data) :
+    #   x0,x1,y,x2,x3=line
         if y==len(table)-1 : continue
         while True :
             n=numpy.random.randint(tf)
@@ -85,29 +100,36 @@ def read_one(filename,table,freq,tf):
 
         inds=[x0,x1,x2,x3,y,y_prime]
         inds=[x if x<len(table)-2 else len(table)-1 for x in inds]
-        
-        yield inds,[numpy.array([table[x]]).T for x in inds]
 
+        cache.append(inds)
+        if len(cache)==batch_size :
+            yield cache
+            cache=[]
+        if ln % 10000 == 0 :
+            end_time = time.clock()
+            training_time = (end_time - start_time)
+            print >> sys.stderr , str(ln) , (' ran for %.2f sec' % (training_time)),training_time/ln*175015168/60/60,'\r',
 
-def test_dA(learning_rate=0.001, training_epochs=10,
+def test_dA(learning_rate=0.05, training_epochs=3,
             dataset="",modelfile="output.txt",
             batch_size=20 ):
-    V=3500# size of words
+    V=30000# size of words
 
-    K=2 # dims of a word embedding
-    H=4
+    K=50 # dims of a word embedding
+    H=100
     # allocate symbolic variables for the data
     index = T.lscalar()    # index to a [mini]batch
 
     table=numpy.array([numpy.array([0.0 for i in range(K)]) 
         for j in range(V)])
 
-    x0=zero_matrix(K,1)
-    x1=zero_matrix(K,1)
-    x2=zero_matrix(K,1)
-    x3=zero_matrix(K,1)
-    y=zero_matrix(K,1)
-    y_prime=zero_matrix(K,1)
+    batch_size=1
+    x0=zero_matrix(K,batch_size)
+    x1=zero_matrix(K,batch_size)
+    x2=zero_matrix(K,batch_size)
+    x3=zero_matrix(K,batch_size)
+    y=zero_matrix(K,batch_size)
+    y_prime=zero_matrix(K,batch_size)
 
     score_p=T.lscalar()
     score=T.lscalar()
@@ -145,24 +167,30 @@ def test_dA(learning_rate=0.001, training_epochs=10,
     for epoch in xrange(training_epochs):
         # go through trainng set
         c = []
-        for i,(inds,data) in enumerate(read_one('sc.txt',table,freq,tf)):
-            x0.set_value(data[0])
-            x1.set_value(data[1])
-            x2.set_value(data[2])
-            x3.set_value(data[3])
-            y.set_value(data[4])
-            y_prime.set_value(data[5])
+        for i,ind_mat in enumerate(read_batch('sc.txt',table,freq,tf,batch_size=batch_size)):
+            x0.set_value(numpy.array([table[inds[0]]for inds in ind_mat]).T)
+            x1.set_value(numpy.array([table[inds[1]]for inds in ind_mat]).T)
+            x2.set_value(numpy.array([table[inds[2]]for inds in ind_mat]).T)
+            x3.set_value(numpy.array([table[inds[3]]for inds in ind_mat]).T)
+            y.set_value(numpy.array([table[inds[4]]for inds in ind_mat]).T)
+            y_prime.set_value(numpy.array([table[inds[5]]for inds in ind_mat]).T)
+
             score,score_p,co=(train_lm())
             c.append(co)
-            #print ' '.join(list(map(lambda x:words[x],inds))), score[0][0],score_p[0][0],co
+            #print 1+score_p-score
+            #print numpy.clip(1+score_p-score,0.0,10000)
+            #print co
+            #input()
 
-            table[inds[0]]=x0.get_value().T[0]
-            table[inds[1]]=x1.get_value().T[0]
-            table[inds[2]]=x2.get_value().T[0]
-            table[inds[3]]=x3.get_value().T[0]
-            table[inds[4]]=y.get_value().T[0]
-            table[inds[5]]=y_prime.get_value().T[0]
-        print 'Training epoch %d, cost ' % epoch, numpy.mean(c)
+            for inds in ind_mat:
+                table[inds[0]]+=x0.get_value().T[0]
+                table[inds[1]]+=x1.get_value().T[0]
+                table[inds[2]]+=x2.get_value().T[0]
+                table[inds[3]]+=x3.get_value().T[0]
+                table[inds[4]]+=y.get_value().T[0]
+                table[inds[5]]+=y_prime.get_value().T[0]
+
+        print 'Training epoch %d, cost ' % epoch, numpy.mean(c)/batch_size
         modelfile2=open(modelfile,"w")
         for i in range(table.shape[0]):
             print >>modelfile2,' '.join("%.4f"%x for x in table[i]) 

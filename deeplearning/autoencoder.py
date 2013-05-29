@@ -107,7 +107,8 @@ class dA(object):
 
 
         #cost = T.mean(L) + T.sum(sL) * beta + T.sum(self.W*self.W)/100
-        cost = T.mean(L) + T.sum(sL) * beta
+        #cost = T.mean(L) + T.sum(sL) * beta + 1.0/2 * T.sum((self.W)**2) /100.0
+        cost = T.mean(L) + T.sum(sL) * beta 
 
         gparams = T.grad(cost, self.params)
         # generate the list of updates
