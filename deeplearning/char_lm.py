@@ -77,8 +77,12 @@ class LM(object):
 
 def read_batch(filename,table,freq,tf,batch_size=1):
     data=[]
-    ln=0
     cache=[]
+    ln=0
+    total_line=int(os.popen('wc -l '+filename).read().partition(' ')[0])
+    print total_line
+
+
     start_time = time.clock()
     for line in open(filename):
         ln+=1
@@ -108,22 +112,32 @@ def read_batch(filename,table,freq,tf,batch_size=1):
         if ln % 10000 == 0 :
             end_time = time.clock()
             training_time = (end_time - start_time)
-            print >> sys.stderr , str(ln) , (' ran for %.2f sec' % (training_time)),training_time/ln*175015168/60/60,'\r',
+            print >> sys.stderr , str(ln) , (' ran for %.2f sec' % (training_time)) ,training_time/ln*(total_line-ln)/60,'\r',
 
-def test_dA(learning_rate=0.05, training_epochs=3,
-            dataset="",modelfile="output.txt",
-            batch_size=20 ):
-    V=30000# size of words
+def test_dA(src,dst,learning_rate=0.05, training_epochs=3,
+            dataset="",
+            batch_size=20,K=50,H=100 ):
 
-    K=50 # dims of a word embedding
-    H=100
+    corpus_file=os.path.join(src,'corpus.txt')
+    table_file=os.path.join(src,'table.txt')
+    freq_file=os.path.join(src,'freq.txt')
+
+    words=[]
+    for line in open(table_file) :
+        words.append(line.strip())
+    words.append('?')
+    print len(words)
+    V=len(words) #V=10000# size of words
+
+    #K=50 # dims of a word embedding
+    #H=100
     # allocate symbolic variables for the data
     index = T.lscalar()    # index to a [mini]batch
 
     table=numpy.array([numpy.array([0.0 for i in range(K)]) 
         for j in range(V)])
 
-    batch_size=1
+    #batch_size=1
     x0=zero_matrix(K,batch_size)
     x1=zero_matrix(K,batch_size)
     x2=zero_matrix(K,batch_size)
@@ -150,14 +164,9 @@ def test_dA(learning_rate=0.05, training_epochs=3,
 
     start_time = time.clock()
 
-    words=[]
-    for line in open('table.txt') :
-        words.append(line.strip())
-    words.append('?')
-    print len(words)
 
     freq=[]
-    for line in open('freq.txt'):
+    for line in open(freq_file):
         w,f=line.split()
         if w=='#' : continue
         freq.append(int(f))
@@ -167,7 +176,7 @@ def test_dA(learning_rate=0.05, training_epochs=3,
     for epoch in xrange(training_epochs):
         # go through trainng set
         c = []
-        for i,ind_mat in enumerate(read_batch('sc.txt',table,freq,tf,batch_size=batch_size)):
+        for i,ind_mat in enumerate(read_batch(corpus_file,table,freq,tf,batch_size=batch_size)):
             x0.set_value(numpy.array([table[inds[0]]for inds in ind_mat]).T)
             x1.set_value(numpy.array([table[inds[1]]for inds in ind_mat]).T)
             x2.set_value(numpy.array([table[inds[2]]for inds in ind_mat]).T)
@@ -191,6 +200,8 @@ def test_dA(learning_rate=0.05, training_epochs=3,
                 table[inds[5]]+=y_prime.get_value().T[0]
 
         print 'Training epoch %d, cost ' % epoch, numpy.mean(c)/batch_size
+
+        modelfile=os.path.join(dst,'model_%d.txt'%(epoch))
         modelfile2=open(modelfile,"w")
         for i in range(table.shape[0]):
             print >>modelfile2,' '.join("%.4f"%x for x in table[i]) 
@@ -205,4 +216,22 @@ def test_dA(learning_rate=0.05, training_epochs=3,
 
 
 if __name__ == '__main__':
-    test_dA()
+    parser=argparse.ArgumentParser()
+    parser.add_argument('src',type=str, help='')
+    parser.add_argument('dst',type=str, help='')
+    parser.add_argument('-i','--iteration',type=int,default=3, help='')
+    parser.add_argument('--learning_rate',type=float,default=0.01, help='')
+    parser.add_argument('--batch_size',type=int,default=1, help='')
+    parser.add_argument('-K',type=int,default=50, help='')
+    parser.add_argument('-H',type=int,default=100, help='')
+    #parser.add_argument('-P',type=int,default=1, help='')
+    args=parser.parse_args()
+
+
+    
+    src=args.src
+    dst=args.dst
+
+    os.system('mkdir %s -p'%(dst))
+    test_dA(src,dst=args.dst,training_epochs=args.iteration,
+            learning_rate=args.learning_rate,batch_size=args.batch_size)
