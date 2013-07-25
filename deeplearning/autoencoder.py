@@ -2,6 +2,11 @@
 """
 modefied from :
     https://github.com/lisa-lab/DeepLearningTutorials
+
+
+./autoencoder.py model1 --train 1.pca --vector floats --hidden 20 --lost_func L2 --beta 0 --linear True --learning_rate 0.02 --itera    tion 30
+./autoencoder.py model --train vector --vector inds --hidden 50 --beta 0 --learning_rate 0.02 --iteration 30
+./autoencoder.py model --vector inds 
 """
 import argparse
 import cPickle
@@ -108,7 +113,10 @@ class dA(object):
 
         #cost = T.mean(L) + T.sum(sL) * beta + T.sum(self.W*self.W)/100
         #cost = T.mean(L) + T.sum(sL) * beta + 1.0/2 * T.sum((self.W)**2) /100.0
-        cost = T.mean(L) + T.sum(sL) * beta 
+        if beta == 0 :
+            cost = T.mean(L)
+        else :
+            cost = T.mean(L) + T.sum(sL) * beta 
 
         gparams = T.grad(cost, self.params)
         # generate the list of updates
@@ -150,6 +158,7 @@ class Floats_Loader():
         for line in lines:
             line=line.split()
             line=list(map(float,line))
+            #line=list(map(lambda x: float(x)*10,line))
             train_set_x.append(numpy.array(line))
         return train_set_x, len(train_set_x[0])
 
@@ -157,6 +166,7 @@ class Floats_Loader():
     def load_line(line,n_visible=None):
         line=line.split()
         v=list(map(float,line))
+        #v=list(map(lambda x : float(x)*10,line))
         return numpy.array(v)
 
     
@@ -236,7 +246,7 @@ def test_dA(learning_rate=0.01, training_epochs=15,
     modelfile.close()
 
 
-def predict(modelfile,threshold=0.5,loader=None):
+def predict(modelfile,threshold=0.5,loader=None,form='values'):
     modelfile=gzip.open(modelfile)
     n_visible,n_hidden=cPickle.load(modelfile)
     paras=cPickle.load(modelfile)
@@ -265,7 +275,9 @@ def predict(modelfile,threshold=0.5,loader=None):
         v=loader.load_line(line,n_visible)
         shared_x.set_value(numpy.array([v]))
         res=predict_da()[0]
-        print word,' '.join([str(ind) for ind, v in enumerate(res) if float(v)>threshold])
+        #print word,' '.join([str(ind) for ind, v in enumerate(res) if float(v)>threshold])
+        if form =='values':
+            print word,' '.join([str(v) for ind, v in enumerate(res)])
         #print word,' '.join([str(ind)+":"+str(v) for ind, v in enumerate(res) if float(v)>threshold])
         sys.stdout.flush()
 
@@ -302,6 +314,7 @@ if __name__ == '__main__':
     parser.add_argument('--linear',  type=bool,default=False)
     parser.add_argument('--lost_func',  type=str,default='KL')
     parser.add_argument('--vector',  type=str,default='inds')
+    parser.add_argument('--output',  type=str,default='values')
     
     parser.add_argument('--index',  type=str)
     args = parser.parse_args()
@@ -324,7 +337,7 @@ if __name__ == '__main__':
                 loader=loader,
                 )
     if args.predict :
-        predict(modelfile=args.model,threshold=args.threshold,loader=loader)
+        predict(modelfile=args.model,threshold=args.threshold,loader=loader,form=args.output)
     if args.index :
         output_weights(args.model,args.index)
 
